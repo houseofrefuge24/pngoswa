@@ -1,25 +1,131 @@
+"use client"
+
+import { useState } from "react"
 import Link from "next/link"
+import {
+  Controller,
+  useForm,
+  useWatch,
+  type FieldErrors,
+  type Path,
+} from "react-hook-form"
+
+import type {
+  MembershipApplicationFormValues,
+  MembershipApplicationSuccess,
+} from "@/lib/membership-form"
+import { membershipFormDefaults } from "@/lib/membership-form"
+import {
+  ChoiceCard,
+  Field,
+  Input,
+  Select,
+  Textarea,
+  UploadInput,
+} from "@/components/ui"
 
 import { membershipTypeOptions } from "./data"
-import type { MembershipFormState } from "./types"
 
-type ApplicationFormSectionProps = {
-  form: MembershipFormState
-  onInputChange: (
-    event: React.ChangeEvent<
-      HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
-    >
-  ) => void
-  onAgreementChange: (agreed: boolean) => void
-  onSubmit: (event: React.FormEvent<HTMLFormElement>) => void
+type ApplyResponse =
+  | {
+      ok: true
+      applicationNumber: string
+      emailSent: boolean
+      message: string
+      debugUrl?: string
+    }
+  | {
+      ok: false
+      message?: string
+      errors?: Record<string, string>
+    }
+
+function collectErrorMessages(
+  errors: FieldErrors<MembershipApplicationFormValues>
+) {
+  return Object.values(errors)
+    .flatMap((error) =>
+      error && typeof error === "object" && "message" in error
+        ? [error.message]
+        : []
+    )
+    .filter((message): message is string => typeof message === "string")
 }
 
-export function ApplicationFormSection({
-  form,
-  onInputChange,
-  onAgreementChange,
-  onSubmit,
-}: ApplicationFormSectionProps) {
+export function ApplicationFormSection() {
+  const [submitError, setSubmitError] = useState<string | null>(null)
+  const [submitSuccess, setSubmitSuccess] =
+    useState<MembershipApplicationSuccess | null>(null)
+
+  const {
+    control,
+    handleSubmit,
+    register,
+    reset,
+    setError,
+    formState: { errors, isSubmitting },
+  } = useForm<MembershipApplicationFormValues>({
+    defaultValues: membershipFormDefaults,
+  })
+
+  const membershipType = useWatch({ control, name: "membershipType" })
+  const isConventionAttendee = useWatch({
+    control,
+    name: "isConventionAttendee",
+  })
+  const agreed = useWatch({ control, name: "agreed" })
+  const validationMessages = collectErrorMessages(errors)
+
+  const onSubmit = handleSubmit(async (values) => {
+    setSubmitError(null)
+    setSubmitSuccess(null)
+
+    try {
+      const response = await fetch("/api/memberships/apply", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(values),
+      })
+
+      const payload = (await response.json()) as ApplyResponse
+
+      if (!response.ok || !payload.ok) {
+        if (!payload.ok) {
+          for (const [fieldName, message] of Object.entries(
+            payload.errors ?? {}
+          )) {
+            setError(fieldName as Path<MembershipApplicationFormValues>, {
+              type: "server",
+              message,
+            })
+          }
+        }
+
+        setSubmitError(
+          payload.ok
+            ? "We could not save your application yet."
+            : (payload.message ??
+                "Please review the highlighted requirements and try again.")
+        )
+        return
+      }
+
+      setSubmitSuccess({
+        applicationNumber: payload.applicationNumber,
+        emailSent: payload.emailSent,
+        message: payload.message,
+        debugUrl: payload.debugUrl,
+      })
+      reset(membershipFormDefaults)
+    } catch {
+      setSubmitError(
+        "Your application could not be sent right now. Please check your connection and try again."
+      )
+    }
+  })
+
   return (
     <section
       id="apply"
@@ -34,526 +140,737 @@ export function ApplicationFormSection({
           with an asterisk are required.
         </p>
 
-        <form onSubmit={onSubmit} className="membership-form">
+        <form onSubmit={onSubmit} noValidate className="membership-form">
+          {submitSuccess ? (
+            <div className="form-feedback form-feedback-success">
+              <strong>Application saved successfully.</strong>
+              <p>
+                Reference number:{" "}
+                <strong>{submitSuccess.applicationNumber}</strong>
+              </p>
+              <p>{submitSuccess.message}</p>
+              {!submitSuccess.emailSent ? (
+                <p>
+                  You can still request your sign-in link from{" "}
+                  <Link href="/member/login">Member Login</Link>.
+                </p>
+              ) : null}
+              {submitSuccess.debugUrl ? (
+                <p>
+                  Development access link:{" "}
+                  <a href={submitSuccess.debugUrl}>{submitSuccess.debugUrl}</a>
+                </p>
+              ) : null}
+            </div>
+          ) : null}
+
+          {submitError ? (
+            <div className="form-feedback form-feedback-error">
+              <strong>We could not submit your application yet.</strong>
+              <p>{submitError}</p>
+              {validationMessages.length > 0 ? (
+                <ul className="form-feedback-list">
+                  {validationMessages.map((message) => (
+                    <li key={message}>{message}</li>
+                  ))}
+                </ul>
+              ) : null}
+            </div>
+          ) : null}
+
           <fieldset className="form-fieldset">
             <legend className="form-legend">1. Personal Information</legend>
             <div className="form-row form-row-3">
-              <div className="form-group">
-                <label htmlFor="lastName" className="form-label">
-                  Last Name <span className="req">*</span>
-                </label>
-                <input
+              <Field
+                htmlFor="lastName"
+                label="Last Name"
+                required
+                error={errors.lastName?.message}
+              >
+                <Input
                   id="lastName"
-                  name="lastName"
-                  type="text"
-                  required
-                  value={form.lastName}
-                  onChange={onInputChange}
-                  className="form-input"
                   placeholder="Dela Cruz"
+                  invalid={!!errors.lastName}
+                  {...register("lastName", {
+                    required: "Last name is required.",
+                  })}
                 />
-              </div>
-              <div className="form-group">
-                <label htmlFor="firstName" className="form-label">
-                  First Name <span className="req">*</span>
-                </label>
-                <input
+              </Field>
+              <Field
+                htmlFor="firstName"
+                label="First Name"
+                required
+                error={errors.firstName?.message}
+              >
+                <Input
                   id="firstName"
-                  name="firstName"
-                  type="text"
-                  required
-                  value={form.firstName}
-                  onChange={onInputChange}
-                  className="form-input"
                   placeholder="Juan"
+                  invalid={!!errors.firstName}
+                  {...register("firstName", {
+                    required: "First name is required.",
+                  })}
                 />
-              </div>
-              <div className="form-group">
-                <label htmlFor="middleName" className="form-label">
-                  Middle Name
-                </label>
-                <input
+              </Field>
+              <Field
+                htmlFor="middleName"
+                label="Middle Name"
+                error={errors.middleName?.message}
+              >
+                <Input
                   id="middleName"
-                  name="middleName"
-                  type="text"
-                  value={form.middleName}
-                  onChange={onInputChange}
-                  className="form-input"
                   placeholder="Santos"
+                  invalid={!!errors.middleName}
+                  {...register("middleName")}
                 />
-              </div>
+              </Field>
             </div>
+
             <div className="form-row">
-              <div className="form-group">
-                <label htmlFor="gender" className="form-label">
-                  Sex / Gender <span className="req">*</span>
-                </label>
-                <select
+              <Field
+                htmlFor="gender"
+                label="Sex / Gender"
+                required
+                error={errors.gender?.message}
+              >
+                <Select
                   id="gender"
-                  name="gender"
-                  required
-                  value={form.gender}
-                  onChange={onInputChange}
-                  className="form-input"
+                  invalid={!!errors.gender}
+                  {...register("gender", {
+                    required: "Sex / Gender is required.",
+                  })}
                 >
                   <option value="">Select gender</option>
                   <option value="female">Female</option>
                   <option value="male">Male</option>
                   <option value="non-binary">Non-binary</option>
                   <option value="prefer-not-to-say">Prefer not to say</option>
-                </select>
-              </div>
-              <div className="form-group">
-                <label htmlFor="dateOfBirth" className="form-label">
-                  Date of Birth <span className="req">*</span>
-                </label>
-                <input
+                </Select>
+              </Field>
+              <Field
+                htmlFor="dateOfBirth"
+                label="Date of Birth"
+                required
+                error={errors.dateOfBirth?.message}
+              >
+                <Input
                   id="dateOfBirth"
-                  name="dateOfBirth"
                   type="date"
-                  required
-                  value={form.dateOfBirth}
-                  onChange={onInputChange}
-                  className="form-input"
+                  invalid={!!errors.dateOfBirth}
+                  {...register("dateOfBirth", {
+                    required: "Date of birth is required.",
+                  })}
                 />
-              </div>
+              </Field>
             </div>
+
             <div className="form-row">
-              <div className="form-group">
-                <label htmlFor="civilStatus" className="form-label">
-                  Civil Status <span className="req">*</span>
-                </label>
-                <select
+              <Field
+                htmlFor="civilStatus"
+                label="Civil Status"
+                required
+                error={errors.civilStatus?.message}
+              >
+                <Select
                   id="civilStatus"
-                  name="civilStatus"
-                  required
-                  value={form.civilStatus}
-                  onChange={onInputChange}
-                  className="form-input"
+                  invalid={!!errors.civilStatus}
+                  {...register("civilStatus", {
+                    required: "Civil status is required.",
+                  })}
                 >
                   <option value="">Select status</option>
                   <option value="single">Single</option>
                   <option value="married">Married</option>
                   <option value="widowed">Widowed</option>
                   <option value="separated">Separated</option>
-                </select>
-              </div>
-              <div className="form-group">
-                <label htmlFor="prcLicense" className="form-label">
-                  PRC License Number{" "}
-                  <span className="form-hint">(if applicable)</span>
-                </label>
-                <input
+                </Select>
+              </Field>
+              <Field
+                htmlFor="prcLicense"
+                label="PRC License Number"
+                hint="If applicable"
+                error={errors.prcLicense?.message}
+              >
+                <Input
                   id="prcLicense"
-                  name="prcLicense"
-                  type="text"
-                  value={form.prcLicense}
-                  onChange={onInputChange}
-                  className="form-input"
                   placeholder="License number"
+                  invalid={!!errors.prcLicense}
+                  {...register("prcLicense")}
                 />
-              </div>
+              </Field>
             </div>
+
             <div className="form-row">
-              <div className="form-group">
-                <label htmlFor="dateOfRegistration" className="form-label">
-                  Date of Registration <span className="req">*</span>
-                </label>
-                <input
+              <Field
+                htmlFor="dateOfRegistration"
+                label="Date of Registration"
+                required
+                error={errors.dateOfRegistration?.message}
+              >
+                <Input
                   id="dateOfRegistration"
-                  name="dateOfRegistration"
                   type="date"
-                  required
-                  value={form.dateOfRegistration}
-                  onChange={onInputChange}
-                  className="form-input"
+                  invalid={!!errors.dateOfRegistration}
+                  {...register("dateOfRegistration", {
+                    required: "Date of registration is required.",
+                  })}
                 />
-              </div>
-              <div className="form-group">
-                <label htmlFor="contactNumber" className="form-label">
-                  Contact Number <span className="req">*</span>
-                </label>
-                <input
+              </Field>
+              <Field
+                htmlFor="contactNumber"
+                label="Contact Number"
+                required
+                error={errors.contactNumber?.message}
+              >
+                <Input
                   id="contactNumber"
-                  name="contactNumber"
                   type="tel"
-                  required
-                  value={form.contactNumber}
-                  onChange={onInputChange}
-                  className="form-input"
                   placeholder="09XX XXX XXXX"
+                  invalid={!!errors.contactNumber}
+                  {...register("contactNumber", {
+                    required: "Contact number is required.",
+                  })}
                 />
-              </div>
+              </Field>
             </div>
+
             <div className="form-row">
-              <div className="form-group">
-                <label htmlFor="email" className="form-label">
-                  Email Address <span className="req">*</span>
-                </label>
-                <input
+              <Field
+                htmlFor="email"
+                label="Email Address"
+                required
+                error={errors.email?.message}
+              >
+                <Input
                   id="email"
-                  name="email"
                   type="email"
-                  required
-                  value={form.email}
-                  onChange={onInputChange}
-                  className="form-input"
                   placeholder="you@email.com"
+                  invalid={!!errors.email}
+                  {...register("email", {
+                    required: "Email address is required.",
+                    pattern: {
+                      value: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
+                      message: "Please enter a valid email address.",
+                    },
+                  })}
                 />
-              </div>
-              <div className="form-group">
-                <label htmlFor="region" className="form-label">
-                  Region <span className="req">*</span>
-                </label>
-                <input
+              </Field>
+              <Field
+                htmlFor="region"
+                label="Region"
+                required
+                error={errors.region?.message}
+              >
+                <Input
                   id="region"
-                  name="region"
-                  type="text"
-                  required
-                  value={form.region}
-                  onChange={onInputChange}
-                  className="form-input"
                   placeholder="NCR, Region IV-A, Region VII"
+                  invalid={!!errors.region}
+                  {...register("region", {
+                    required: "Region is required.",
+                  })}
                 />
-              </div>
+              </Field>
             </div>
           </fieldset>
 
           <fieldset className="form-fieldset">
             <legend className="form-legend">2. Employment Information</legend>
-            <div className="form-group">
-              <label htmlFor="organization" className="form-label">
-                Name of Organization / NGO <span className="req">*</span>
-              </label>
-              <input
+            <Field
+              htmlFor="organization"
+              label="Name of Organization / NGO"
+              required
+              error={errors.organization?.message}
+            >
+              <Input
                 id="organization"
-                name="organization"
-                type="text"
-                required
-                value={form.organization}
-                onChange={onInputChange}
-                className="form-input"
                 placeholder="Organization name"
+                invalid={!!errors.organization}
+                {...register("organization", {
+                  required: "Organization / NGO is required.",
+                })}
               />
-            </div>
-            <div className="form-group">
-              <label htmlFor="officeAddress" className="form-label">
-                Office Address <span className="req">*</span>
-              </label>
-              <textarea
+            </Field>
+
+            <Field
+              htmlFor="officeAddress"
+              label="Office Address"
+              required
+              error={errors.officeAddress?.message}
+            >
+              <Textarea
                 id="officeAddress"
-                name="officeAddress"
-                required
-                value={form.officeAddress}
-                onChange={onInputChange}
-                className="form-input"
                 rows={3}
                 placeholder="Complete office address"
+                invalid={!!errors.officeAddress}
+                {...register("officeAddress", {
+                  required: "Office address is required.",
+                })}
               />
-            </div>
+            </Field>
+
             <div className="form-row">
-              <div className="form-group">
-                <label htmlFor="position" className="form-label">
-                  Position / Designation <span className="req">*</span>
-                </label>
-                <input
+              <Field
+                htmlFor="position"
+                label="Position / Designation"
+                required
+                error={errors.position?.message}
+              >
+                <Input
                   id="position"
-                  name="position"
-                  type="text"
-                  required
-                  value={form.position}
-                  onChange={onInputChange}
-                  className="form-input"
                   placeholder="Social Worker, Case Manager"
+                  invalid={!!errors.position}
+                  {...register("position", {
+                    required: "Position / Designation is required.",
+                  })}
                 />
-              </div>
-              <div className="form-group">
-                <label htmlFor="employmentStatus" className="form-label">
-                  Employment Status <span className="req">*</span>
-                </label>
-                <select
+              </Field>
+              <Field
+                htmlFor="employmentStatus"
+                label="Employment Status"
+                required
+                error={errors.employmentStatus?.message}
+              >
+                <Select
                   id="employmentStatus"
-                  name="employmentStatus"
-                  required
-                  value={form.employmentStatus}
-                  onChange={onInputChange}
-                  className="form-input"
+                  invalid={!!errors.employmentStatus}
+                  {...register("employmentStatus", {
+                    required: "Employment status is required.",
+                  })}
                 >
                   <option value="">Select status</option>
                   <option value="regular">Regular</option>
                   <option value="contractual">Contractual</option>
                   <option value="volunteer">Volunteer</option>
-                </select>
-              </div>
+                </Select>
+              </Field>
             </div>
+
             <div className="form-row">
-              <div className="form-group">
-                <label htmlFor="lengthOfService" className="form-label">
-                  Length of Service <span className="req">*</span>
-                </label>
-                <input
+              <Field
+                htmlFor="lengthOfService"
+                label="Length of Service"
+                required
+                error={errors.lengthOfService?.message}
+              >
+                <Input
                   id="lengthOfService"
-                  name="lengthOfService"
-                  type="text"
-                  required
-                  value={form.lengthOfService}
-                  onChange={onInputChange}
-                  className="form-input"
                   placeholder="3 years"
+                  invalid={!!errors.lengthOfService}
+                  {...register("lengthOfService", {
+                    required: "Length of service is required.",
+                  })}
                 />
-              </div>
-              <div className="form-group">
-                <label htmlFor="areaOfPractice" className="form-label">
-                  Area of Practice <span className="req">*</span>
-                </label>
-                <input
+              </Field>
+              <Field
+                htmlFor="areaOfPractice"
+                label="Area of Practice"
+                required
+                error={errors.areaOfPractice?.message}
+              >
+                <Input
                   id="areaOfPractice"
-                  name="areaOfPractice"
-                  type="text"
-                  required
-                  value={form.areaOfPractice}
-                  onChange={onInputChange}
-                  className="form-input"
                   placeholder="Child Welfare, Community Development"
+                  invalid={!!errors.areaOfPractice}
+                  {...register("areaOfPractice", {
+                    required: "Area of practice is required.",
+                  })}
                 />
-              </div>
+              </Field>
             </div>
           </fieldset>
 
           <fieldset className="form-fieldset">
             <legend className="form-legend">3. Educational Background</legend>
             <div className="form-row">
-              <div className="form-group">
-                <label htmlFor="degree" className="form-label">
-                  Degree <span className="req">*</span>
-                </label>
-                <input
+              <Field
+                htmlFor="degree"
+                label="Degree"
+                required
+                error={errors.degree?.message}
+              >
+                <Input
                   id="degree"
-                  name="degree"
-                  type="text"
-                  required
-                  value={form.degree}
-                  onChange={onInputChange}
-                  className="form-input"
                   placeholder="BS Social Work"
+                  invalid={!!errors.degree}
+                  {...register("degree", {
+                    required: "Degree is required.",
+                  })}
                 />
-              </div>
-              <div className="form-group">
-                <label htmlFor="school" className="form-label">
-                  School / University <span className="req">*</span>
-                </label>
-                <input
+              </Field>
+              <Field
+                htmlFor="school"
+                label="School / University"
+                required
+                error={errors.school?.message}
+              >
+                <Input
                   id="school"
-                  name="school"
-                  type="text"
-                  required
-                  value={form.school}
-                  onChange={onInputChange}
-                  className="form-input"
                   placeholder="School name"
+                  invalid={!!errors.school}
+                  {...register("school", {
+                    required: "School / University is required.",
+                  })}
                 />
-              </div>
+              </Field>
             </div>
+
             <div className="form-row">
-              <div className="form-group">
-                <label htmlFor="yearGraduated" className="form-label">
-                  Year Graduated <span className="req">*</span>
-                </label>
-                <input
+              <Field
+                htmlFor="yearGraduated"
+                label="Year Graduated"
+                required
+                error={errors.yearGraduated?.message}
+              >
+                <Input
                   id="yearGraduated"
-                  name="yearGraduated"
-                  type="text"
-                  required
-                  value={form.yearGraduated}
-                  onChange={onInputChange}
-                  className="form-input"
+                  inputMode="numeric"
                   placeholder="2020"
+                  invalid={!!errors.yearGraduated}
+                  {...register("yearGraduated", {
+                    required: "Year graduated is required.",
+                    pattern: {
+                      value: /^\d{4}$/,
+                      message: "Year graduated must be a 4-digit year.",
+                    },
+                  })}
                 />
-              </div>
-              <div className="form-group">
-                <label htmlFor="postgraduateStudies" className="form-label">
-                  Postgraduate Studies{" "}
-                  <span className="form-hint">(if any)</span>
-                </label>
-                <input
+              </Field>
+              <Field
+                htmlFor="postgraduateStudies"
+                label="Postgraduate Studies"
+                hint="If any"
+                error={errors.postgraduateStudies?.message}
+              >
+                <Input
                   id="postgraduateStudies"
-                  name="postgraduateStudies"
-                  type="text"
-                  value={form.postgraduateStudies}
-                  onChange={onInputChange}
-                  className="form-input"
                   placeholder="MA Social Work"
+                  invalid={!!errors.postgraduateStudies}
+                  {...register("postgraduateStudies")}
                 />
-              </div>
+              </Field>
             </div>
           </fieldset>
 
           <fieldset className="form-fieldset">
             <legend className="form-legend">4. Professional Information</legend>
-            <div className="form-group">
-              <label htmlFor="specializations" className="form-label">
-                Areas of Specialization <span className="req">*</span>
-              </label>
-              <textarea
+            <Field
+              htmlFor="specializations"
+              label="Areas of Specialization"
+              required
+              error={errors.specializations?.message}
+            >
+              <Textarea
                 id="specializations"
-                name="specializations"
-                required
-                value={form.specializations}
-                onChange={onInputChange}
-                className="form-input"
                 rows={3}
                 placeholder="Case management, child protection, community organizing"
+                invalid={!!errors.specializations}
+                {...register("specializations", {
+                  required: "Areas of specialization are required.",
+                })}
               />
-            </div>
-            <div className="form-group">
-              <label htmlFor="otherOrganizations" className="form-label">
-                Membership in Other Professional Organizations
-              </label>
-              <textarea
+            </Field>
+            <Field
+              htmlFor="otherOrganizations"
+              label="Membership in Other Professional Organizations"
+              error={errors.otherOrganizations?.message}
+            >
+              <Textarea
                 id="otherOrganizations"
-                name="otherOrganizations"
-                value={form.otherOrganizations}
-                onChange={onInputChange}
-                className="form-input"
                 rows={3}
                 placeholder="List organizations or write N/A"
+                invalid={!!errors.otherOrganizations}
+                {...register("otherOrganizations")}
               />
-            </div>
+            </Field>
           </fieldset>
 
           <fieldset className="form-fieldset">
             <legend className="form-legend">
               Membership Type <span className="req">*</span>
             </legend>
-            <div className="option-group">
-              {membershipTypeOptions.map((typeOption) => (
-                <label
-                  key={typeOption.value}
-                  className={`option-card ${form.membershipType === typeOption.value ? "selected" : ""}`}
-                >
-                  <input
-                    type="radio"
-                    name="membershipType"
-                    value={typeOption.value}
-                    checked={form.membershipType === typeOption.value}
-                    onChange={onInputChange}
-                    className="option-input"
-                    required
-                  />
-                  <div>
-                    <strong>{typeOption.label}</strong>
-                    <span className="option-desc">{typeOption.desc}</span>
+            <Controller
+              name="membershipType"
+              control={control}
+              rules={{ required: "Membership type is required." }}
+              render={({ field, fieldState }) => (
+                <>
+                  <div className="option-group">
+                    {membershipTypeOptions.map((typeOption) => (
+                      <ChoiceCard
+                        key={typeOption.value}
+                        type="radio"
+                        name={field.name}
+                        value={typeOption.value}
+                        checked={field.value === typeOption.value}
+                        selected={field.value === typeOption.value}
+                        invalid={!!fieldState.error}
+                        onChange={() => field.onChange(typeOption.value)}
+                        title={typeOption.label}
+                        description={typeOption.desc}
+                      />
+                    ))}
                   </div>
-                </label>
-              ))}
+                  {fieldState.error ? (
+                    <p role="alert" className="form-error">
+                      {fieldState.error.message}
+                    </p>
+                  ) : null}
+                </>
+              )}
+            />
+          </fieldset>
+
+          <fieldset className="form-fieldset">
+            <legend className="form-legend">5. Supporting Documents</legend>
+            <div className="form-notice">
+              Upload the files that support your membership review. Use PDF for
+              documents and JPG or PNG for scanned copies and images.
+            </div>
+            <div className="form-row">
+              <Controller
+                name="resumeUpload"
+                control={control}
+                rules={{
+                  validate: (value) => !!value || "CV / Resume is required.",
+                }}
+                render={({ field, fieldState }) => (
+                  <UploadInput
+                    id="resumeUpload"
+                    label="CV / Resume"
+                    required
+                    accept=".pdf,.jpg,.jpeg,.png"
+                    allowedText="PDF, JPG, or PNG up to 8MB"
+                    endpoint="membershipDocument"
+                    value={field.value}
+                    onChange={field.onChange}
+                    error={fieldState.error?.message}
+                    disabled={isSubmitting}
+                  />
+                )}
+              />
+              <Controller
+                name="employmentProofUpload"
+                control={control}
+                rules={{
+                  validate: (value) =>
+                    membershipType === "honorary" ||
+                    !!value ||
+                    "Proof of employment or leadership role is required.",
+                }}
+                render={({ field, fieldState }) => (
+                  <UploadInput
+                    id="employmentProofUpload"
+                    label="Proof of Employment / Leadership Role"
+                    hint={
+                      membershipType === "honorary"
+                        ? "Optional for honorary applications"
+                        : undefined
+                    }
+                    required={membershipType !== "honorary"}
+                    accept=".pdf,.jpg,.jpeg,.png"
+                    allowedText="PDF, JPG, or PNG up to 8MB"
+                    endpoint="membershipDocument"
+                    value={field.value}
+                    onChange={field.onChange}
+                    error={fieldState.error?.message}
+                    disabled={isSubmitting}
+                  />
+                )}
+              />
+            </div>
+            <div className="form-row">
+              <Controller
+                name="prcLicenseUpload"
+                control={control}
+                render={({ field, fieldState }) => (
+                  <UploadInput
+                    id="prcLicenseUpload"
+                    label="PRC License Copy"
+                    hint="If applicable"
+                    accept=".pdf,.jpg,.jpeg,.png"
+                    allowedText="PDF, JPG, or PNG up to 8MB"
+                    endpoint="membershipDocument"
+                    value={field.value}
+                    onChange={field.onChange}
+                    error={fieldState.error?.message}
+                    disabled={isSubmitting}
+                  />
+                )}
+              />
+              <Controller
+                name="endorsementUpload"
+                control={control}
+                rules={{
+                  validate: (value) =>
+                    membershipType !== "honorary" ||
+                    !!value ||
+                    "Recommendation / endorsement is required for honorary membership.",
+                }}
+                render={({ field, fieldState }) => (
+                  <UploadInput
+                    id="endorsementUpload"
+                    label="Recommendation / Endorsement"
+                    hint={
+                      membershipType === "honorary"
+                        ? undefined
+                        : "Only required for honorary membership"
+                    }
+                    required={membershipType === "honorary"}
+                    accept=".pdf,.jpg,.jpeg,.png"
+                    allowedText="PDF, JPG, or PNG up to 8MB"
+                    endpoint="membershipDocument"
+                    value={field.value}
+                    onChange={field.onChange}
+                    error={fieldState.error?.message}
+                    disabled={isSubmitting}
+                  />
+                )}
+              />
             </div>
           </fieldset>
 
           <fieldset className="form-fieldset">
-            <legend className="form-legend">5. Payment</legend>
+            <legend className="form-legend">6. Payment</legend>
             <div className="form-notice">
               <strong>Notice:</strong> Membership fee is waived for convention
               attendees. Only ID and T-shirt fees are required. Please upload
               your certificate.
             </div>
-            <div className="option-group">
-              <label
-                className={`option-card ${form.isConventionAttendee === "yes" ? "selected" : ""}`}
-              >
-                <input
-                  type="radio"
-                  name="isConventionAttendee"
-                  value="yes"
-                  checked={form.isConventionAttendee === "yes"}
-                  onChange={onInputChange}
-                  className="option-input"
-                  required
-                />
-                <span>Convention Attendee with Certificate</span>
-              </label>
-              <label
-                className={`option-card ${form.isConventionAttendee === "no" ? "selected" : ""}`}
-              >
-                <input
-                  type="radio"
-                  name="isConventionAttendee"
-                  value="no"
-                  checked={form.isConventionAttendee === "no"}
-                  onChange={onInputChange}
-                  className="option-input"
-                  required
-                />
-                <span>Regular Applicant</span>
-              </label>
-            </div>
+            <Controller
+              name="isConventionAttendee"
+              control={control}
+              rules={{
+                required: "Convention attendee selection is required.",
+              }}
+              render={({ field, fieldState }) => (
+                <>
+                  <div className="option-group">
+                    <ChoiceCard
+                      type="radio"
+                      name={field.name}
+                      value="yes"
+                      checked={field.value === "yes"}
+                      selected={field.value === "yes"}
+                      invalid={!!fieldState.error}
+                      onChange={() => field.onChange("yes")}
+                      title="Convention Attendee with Certificate"
+                    />
+                    <ChoiceCard
+                      type="radio"
+                      name={field.name}
+                      value="no"
+                      checked={field.value === "no"}
+                      selected={field.value === "no"}
+                      invalid={!!fieldState.error}
+                      onChange={() => field.onChange("no")}
+                      title="Regular Applicant"
+                    />
+                  </div>
+                  {fieldState.error ? (
+                    <p role="alert" className="form-error">
+                      {fieldState.error.message}
+                    </p>
+                  ) : null}
+                </>
+              )}
+            />
             <div className="form-row">
-              <div className="form-group">
-                <label htmlFor="certificateUpload" className="form-label">
-                  Upload Certificate of Participation/Attendance
-                </label>
-                <input
-                  id="certificateUpload"
-                  name="certificateUpload"
-                  type="file"
-                  className="form-input"
-                  accept=".pdf,.jpg,.jpeg,.png"
-                />
-              </div>
-              <div className="form-group">
-                <label htmlFor="paymentProof" className="form-label">
-                  Upload Proof of Payment <span className="req">*</span>
-                </label>
-                <input
-                  id="paymentProof"
-                  name="paymentProof"
-                  type="file"
-                  required
-                  className="form-input"
-                  accept=".pdf,.jpg,.jpeg,.png"
-                />
-              </div>
+              <Controller
+                name="certificateUpload"
+                control={control}
+                rules={{
+                  validate: (value) =>
+                    isConventionAttendee !== "yes" ||
+                    !!value ||
+                    "Certificate of participation / attendance is required.",
+                }}
+                render={({ field, fieldState }) => (
+                  <UploadInput
+                    id="certificateUpload"
+                    label="Certificate of Participation / Attendance"
+                    required={isConventionAttendee === "yes"}
+                    accept=".pdf,.jpg,.jpeg,.png"
+                    allowedText="PDF, JPG, or PNG up to 8MB"
+                    endpoint="membershipDocument"
+                    value={field.value}
+                    onChange={field.onChange}
+                    error={fieldState.error?.message}
+                    disabled={isSubmitting}
+                  />
+                )}
+              />
+              <Controller
+                name="paymentProof"
+                control={control}
+                rules={{
+                  validate: (value) =>
+                    !!value || "Proof of payment is required.",
+                }}
+                render={({ field, fieldState }) => (
+                  <UploadInput
+                    id="paymentProof"
+                    label="Proof of Payment"
+                    required
+                    accept=".pdf,.jpg,.jpeg,.png"
+                    allowedText="PDF, JPG, or PNG up to 8MB"
+                    endpoint="membershipDocument"
+                    value={field.value}
+                    onChange={field.onChange}
+                    error={fieldState.error?.message}
+                    disabled={isSubmitting}
+                  />
+                )}
+              />
             </div>
-            <div className="form-group">
-              <label htmlFor="paymentMode" className="form-label">
-                Mode of Payment <span className="req">*</span>
-              </label>
-              <select
+            <Field
+              htmlFor="paymentMode"
+              label="Mode of Payment"
+              required
+              error={errors.paymentMode?.message}
+            >
+              <Select
                 id="paymentMode"
-                name="paymentMode"
-                required
-                value={form.paymentMode}
-                onChange={onInputChange}
-                className="form-input"
+                invalid={!!errors.paymentMode}
+                {...register("paymentMode", {
+                  required: "Mode of payment is required.",
+                })}
               >
                 <option value="">Select payment mode</option>
                 <option value="gcash">GCash</option>
                 <option value="bank-transfer">Bank Transfer</option>
                 <option value="cash">Cash</option>
                 <option value="other">Other</option>
-              </select>
-            </div>
+              </Select>
+            </Field>
           </fieldset>
 
           <fieldset className="form-fieldset">
-            <legend className="form-legend">6. ID Information</legend>
-            <div className="form-group">
-              <label htmlFor="photoUpload" className="form-label">
-                Upload 2x2 Photo <span className="req">*</span>
-              </label>
-              <input
-                id="photoUpload"
-                name="photoUpload"
-                type="file"
-                required
-                className="form-input"
-                accept=".jpg,.jpeg,.png"
-              />
-            </div>
+            <legend className="form-legend">7. ID Information</legend>
+            <Controller
+              name="photoUpload"
+              control={control}
+              rules={{
+                validate: (value) => !!value || "2x2 photo is required.",
+              }}
+              render={({ field, fieldState }) => (
+                <UploadInput
+                  id="photoUpload"
+                  label="Upload 2x2 Photo"
+                  required
+                  accept=".jpg,.jpeg,.png"
+                  allowedText="JPG or PNG up to 8MB"
+                  endpoint="membershipPhoto"
+                  value={field.value}
+                  onChange={field.onChange}
+                  error={fieldState.error?.message}
+                  disabled={isSubmitting}
+                />
+              )}
+            />
           </fieldset>
 
           <fieldset className="form-fieldset">
             <legend className="form-legend">
-              7. Declaration and Data Privacy Consent
+              8. Declaration and Data Privacy Consent
             </legend>
             <div className="agreement-box">
               <p>
@@ -582,32 +899,46 @@ export function ApplicationFormSection({
                 I have read and understood the above statements and voluntarily
                 give my full consent.
               </p>
-              <label className="option-card privacy-consent">
-                <input
-                  type="checkbox"
-                  checked={form.agreed}
-                  onChange={(event) => onAgreementChange(event.target.checked)}
-                  required
-                  className="option-input"
-                />
-                <span>
-                  I agree to the Declaration and Data Privacy Consent{" "}
-                  <span className="req">*</span>
-                </span>
-              </label>
+              <Controller
+                name="agreed"
+                control={control}
+                rules={{
+                  validate: (value) =>
+                    value ||
+                    "You must agree to the declaration and data privacy consent.",
+                }}
+                render={({ field, fieldState }) => (
+                  <>
+                    <ChoiceCard
+                      type="checkbox"
+                      className="privacy-consent"
+                      checked={field.value}
+                      selected={field.value}
+                      invalid={!!fieldState.error}
+                      onChange={(event) => field.onChange(event.target.checked)}
+                      title="I agree to the Declaration and Data Privacy Consent"
+                    />
+                    {fieldState.error ? (
+                      <p role="alert" className="form-error">
+                        {fieldState.error.message}
+                      </p>
+                    ) : null}
+                  </>
+                )}
+              />
             </div>
           </fieldset>
 
           <button
             type="submit"
             className="btn btn-cta btn-lg submit-btn"
-            disabled={!form.agreed}
+            disabled={!agreed || isSubmitting}
             style={{
-              opacity: form.agreed ? 1 : 0.45,
-              cursor: form.agreed ? "pointer" : "not-allowed",
+              opacity: agreed && !isSubmitting ? 1 : 0.45,
+              cursor: agreed && !isSubmitting ? "pointer" : "not-allowed",
             }}
           >
-            Submit Application
+            {isSubmitting ? "Submitting Application..." : "Submit Application"}
           </button>
         </form>
       </div>

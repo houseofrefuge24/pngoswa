@@ -1,75 +1,12 @@
 "use client"
 
-import { useState } from "react"
-
 import {
   ApplicationFormSection,
   MembershipFooter,
   MembershipNavbar,
 } from "@/components/membership"
-import type { MembershipFormState } from "@/components/membership/types"
-
-const initialFormState: MembershipFormState = {
-  lastName: "",
-  firstName: "",
-  middleName: "",
-  gender: "",
-  dateOfBirth: "",
-  civilStatus: "",
-  prcLicense: "",
-  dateOfRegistration: "",
-  contactNumber: "",
-  email: "",
-  region: "",
-  organization: "",
-  officeAddress: "",
-  position: "",
-  employmentStatus: "",
-  lengthOfService: "",
-  areaOfPractice: "",
-  degree: "",
-  school: "",
-  yearGraduated: "",
-  postgraduateStudies: "",
-  specializations: "",
-  otherOrganizations: "",
-  membershipType: "",
-  paymentMode: "",
-  isConventionAttendee: "",
-  agreed: false,
-}
 
 export function MembershipApplyPageClient() {
-  const [form, setForm] = useState<MembershipFormState>(initialFormState)
-
-  const handleInput = (
-    event: React.ChangeEvent<
-      HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
-    >
-  ) => {
-    const target = event.target
-    const value =
-      target instanceof HTMLInputElement && target.type === "checkbox"
-        ? target.checked
-        : target.value
-
-    setForm((prev) => ({
-      ...prev,
-      [target.name]: value,
-    }))
-  }
-
-  const handleAgreementChange = (agreed: boolean) => {
-    setForm((prev) => ({ ...prev, agreed }))
-  }
-
-  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault()
-    alert(
-      "Thank you for your application! PNGOSWA will review your submission and contact you soon."
-    )
-  }
-
   return (
     <>
       <MembershipNavbar />
@@ -107,12 +44,7 @@ export function MembershipApplyPageClient() {
           </div>
           <div className="gradient-bar" />
         </section>
-        <ApplicationFormSection
-          form={form}
-          onInputChange={handleInput}
-          onAgreementChange={handleAgreementChange}
-          onSubmit={handleSubmit}
-        />
+        <ApplicationFormSection />
       </main>
       <MembershipFooter />
     </>

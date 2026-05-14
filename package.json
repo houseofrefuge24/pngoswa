@@ -6,23 +6,33 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "admins:sync": "node --experimental-strip-types --experimental-specifier-resolution=node --import dotenv/config ./scripts/sync-admins.ts"
   },
   "dependencies": {
+    "@prisma/adapter-pg": "^7.8.0",
+    "@prisma/client": "^7.8.0",
+    "@uploadthing/react": "^7.3.3",
+    "dotenv": "^17.4.2",
     "next": "16.2.3",
+    "pg": "^8.20.0",
     "postcss": "^8.5.9",
     "react": "19.2.4",
-    "react-dom": "19.2.4"
+    "react-dom": "19.2.4",
+    "react-hook-form": "^7.75.0",
+    "uploadthing": "^7.7.4"
   },
   "devDependencies": {
+    "@ianvs/prettier-plugin-sort-imports": "^4.7.0",
     "@types/node": "^20",
+    "@types/pg": "^8.20.0",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.2.3",
-    "typescript": "^5",
-    "@ianvs/prettier-plugin-sort-imports": "^4.7.0",
-    "prettier": "^3.6.2"
+    "prettier": "^3.6.2",
+    "prisma": "^7.8.0",
+    "typescript": "^5"
   },
   "prettier": {
     "endOfLine": "lf",

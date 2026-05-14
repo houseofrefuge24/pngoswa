@@ -58,30 +58,37 @@ export function HeroSection() {
           </div>
         </div>
         <div className="anim-rise d2">
-          <div className="hero-img-wrap">
-            <Image
-              src="/helping-others.png"
-              alt="Social workers collaborating together"
-              width={1200}
-              height={900}
-              priority
-            />
-            <div className="hero-img-overlay" />
-            <div className="hero-img-badge">
-              <svg
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-              >
-                <circle cx="12" cy="12" r="10" />
-                <path d="M8 14s1.5 2 4 2 4-2 4-2" />
-                <line x1="9" y1="9" x2="9.01" y2="9" />
-                <line x1="15" y1="9" x2="15.01" y2="9" />
-              </svg>
-              Stronger together for every community
+          <div className="hero-visual-stage">
+            <div className="hero-img-wrap">
+              <div className="hero-img-orbit hero-img-orbit-one" />
+              <div className="hero-img-orbit hero-img-orbit-two" />
+              <div className="hero-img-shell">
+                <div className="hero-img-seal">
+                  <Image
+                    src="/logo.jpg"
+                    alt="Official PNGOSWA association seal"
+                    width={960}
+                    height={960}
+                    preload
+                    sizes="(max-width: 1023px) 72vw, 34vw"
+                  />
+                </div>
+                <div className="hero-img-badge">
+                  <span className="hero-img-badge-label">Official Identity</span>
+                  <p>
+                    One symbol for advocacy, solidarity, and professional
+                    service across the Philippines.
+                  </p>
+                </div>
+              </div>
+            </div>
+            <div className="hero-info-card hero-info-card-top">
+              <span className="hero-info-label">National Banner</span>
+              <strong>Shared mission, local action.</strong>
+            </div>
+            <div className="hero-info-card hero-info-card-bottom">
+              <span className="hero-info-label">Community Promise</span>
+              <strong>Stronger together for every community.</strong>
             </div>
           </div>
         </div>

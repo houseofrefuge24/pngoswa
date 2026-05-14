@@ -1,5 +1,9 @@
 import type { Metadata } from "next"
 import { Lexend, Merriweather } from "next/font/google"
+import { NextSSRPlugin } from "@uploadthing/react/next-ssr-plugin"
+import { extractRouterConfig } from "uploadthing/server"
+
+import { uploadRouter } from "@/app/api/uploadthing/core"
 
 import "./globals.css"
 
@@ -123,6 +127,7 @@ export default function RootLayout({
       className={`${lexend.variable} ${merriweather.variable} antialiased`}
     >
       <body className="flex min-h-dvh flex-col">
+        <NextSSRPlugin routerConfig={extractRouterConfig(uploadRouter)} />
         {children}
         <script
           type="application/ld+json"

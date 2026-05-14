@@ -1,0 +1,224 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../lib/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum UserRole {
+  ADMIN
+  MEMBER
+}
+
+enum MembershipStatus {
+  PENDING
+  FOLLOW_UP
+  APPROVED
+  REJECTED
+}
+
+enum MembershipType {
+  REGULAR
+  LIFETIME
+  HONORARY
+}
+
+enum GenderOption {
+  FEMALE
+  MALE
+  NON_BINARY
+  PREFER_NOT_TO_SAY
+}
+
+enum CivilStatusOption {
+  SINGLE
+  MARRIED
+  WIDOWED
+  SEPARATED
+}
+
+enum EmploymentStatusOption {
+  REGULAR
+  CONTRACTUAL
+  VOLUNTEER
+}
+
+enum PaymentModeOption {
+  GCASH
+  BANK_TRANSFER
+  CASH
+  OTHER
+}
+
+enum MembershipDocumentType {
+  RESUME
+  EMPLOYMENT_PROOF
+  PRC_LICENSE
+  ENDORSEMENT
+  ATTENDANCE_CERTIFICATE
+  PAYMENT_PROOF
+  ID_PHOTO
+}
+
+enum MagicLinkScope {
+  ADMIN
+  MEMBER
+}
+
+enum ReviewActionType {
+  SUBMITTED
+  FOLLOW_UP
+  APPROVED
+  REJECTED
+}
+
+enum CommunicationKind {
+  MAGIC_LINK
+  FOLLOW_UP
+  STATUS_UPDATE
+}
+
+enum CommunicationStatus {
+  PENDING
+  SENT
+  FAILED
+}
+
+model User {
+  id                     String                 @id @default(cuid())
+  email                  String                 @unique
+  name                   String?
+  role                   UserRole               @default(MEMBER)
+  createdAt              DateTime               @default(now())
+  updatedAt              DateTime               @updatedAt
+  membershipApplications MembershipApplication[]
+  sessions               AuthSession[]
+  magicLinks             MagicLinkToken[]
+  sentCommunications     CommunicationLog[]
+  reviewActions          MembershipReviewAction[] @relation("ReviewerActions")
+}
+
+model MembershipApplication {
+  id                     String                   @id @default(cuid())
+  applicationNumber      String                   @unique
+  userId                 String
+  user                   User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  status                 MembershipStatus         @default(PENDING)
+  membershipType         MembershipType
+  firstName              String
+  lastName               String
+  middleName             String?
+  gender                 GenderOption
+  dateOfBirth            DateTime
+  civilStatus            CivilStatusOption
+  prcLicense             String?
+  dateOfRegistration     DateTime
+  contactNumber          String
+  email                  String
+  region                 String
+  organization           String
+  officeAddress          String
+  position               String
+  employmentStatus       EmploymentStatusOption
+  lengthOfService        String
+  areaOfPractice         String
+  degree                 String
+  school                 String
+  yearGraduated          String
+  postgraduateStudies    String?
+  specializations        String
+  otherOrganizations     String?
+  paymentMode            PaymentModeOption
+  isConventionAttendee   Boolean
+  agreedToPrivacy        Boolean
+  reviewSummary          String?
+  followUpMessage        String?
+  lastFollowUpSentAt     DateTime?
+  approvedAt             DateTime?
+  rejectedAt             DateTime?
+  createdAt              DateTime                 @default(now())
+  updatedAt              DateTime                 @updatedAt
+  documents              MembershipDocument[]
+  magicLinks             MagicLinkToken[]
+  reviewActions          MembershipReviewAction[]
+  communications         CommunicationLog[]
+}
+
+model MembershipDocument {
+  id            String                 @id @default(cuid())
+  applicationId String
+  application   MembershipApplication  @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  type          MembershipDocumentType
+  label         String
+  originalName  String
+  storedName    String
+  storagePath   String
+  mimeType      String
+  sizeBytes     Int
+  createdAt     DateTime               @default(now())
+
+  @@index([applicationId, type])
+}
+
+model MembershipReviewAction {
+  id            String                 @id @default(cuid())
+  applicationId String
+  application   MembershipApplication  @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  reviewerId    String?
+  reviewer      User?                  @relation("ReviewerActions", fields: [reviewerId], references: [id], onDelete: SetNull)
+  type          ReviewActionType
+  subject       String?
+  message       String?
+  createdAt     DateTime               @default(now())
+
+  @@index([applicationId, createdAt])
+}
+
+model MagicLinkToken {
+  id            String                 @id @default(cuid())
+  email         String
+  tokenHash     String                 @unique
+  scope         MagicLinkScope
+  redirectPath  String
+  userId        String?
+  user          User?                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  applicationId String?
+  application   MembershipApplication? @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  expiresAt     DateTime
+  usedAt        DateTime?
+  createdAt     DateTime               @default(now())
+
+  @@index([email, scope, expiresAt])
+}
+
+model AuthSession {
+  id               String         @id @default(cuid())
+  sessionTokenHash String         @unique
+  scope            MagicLinkScope
+  expiresAt        DateTime
+  createdAt        DateTime       @default(now())
+  userId           String
+  user             User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, scope, expiresAt])
+}
+
+model CommunicationLog {
+  id            String                 @id @default(cuid())
+  applicationId String?
+  application   MembershipApplication? @relation(fields: [applicationId], references: [id], onDelete: SetNull)
+  userId        String?
+  user          User?                  @relation(fields: [userId], references: [id], onDelete: SetNull)
+  kind          CommunicationKind
+  status        CommunicationStatus    @default(PENDING)
+  recipientEmail String
+  subject       String
+  previewText   String
+  errorMessage  String?
+  sentAt        DateTime?
+  createdAt     DateTime               @default(now())
+
+  @@index([applicationId, createdAt])
+}
