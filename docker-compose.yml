@@ -6,12 +6,12 @@ services:
     env_file:
       - .env
     environment:
-      NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-http://localhost:3000}
-      PORT: "3000"
+      NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-http://localhost:3006}
+      PORT: "3006"
       HOSTNAME: 0.0.0.0
       RUN_DB_MIGRATIONS: ${RUN_DB_MIGRATIONS:-true}
     ports:
-      - "3000:3000"
+      - "3006:3006"
     restart: unless-stopped
     networks:
       - dokploy-network
