@@ -1,6 +1,6 @@
-import { redirect } from "next/navigation"
+import Link from "next/link"
 
-import { requestMemberMagicLink } from "@/app/member/actions"
+import { logoutMember, requestMemberMagicLink } from "@/app/member/actions"
 import { MagicLinkRequestForm } from "@/components/portal/magic-link-request-form"
 import { getCurrentPortalSession, isDevelopmentAuthBypassEnabled } from "@/lib/auth"
 
@@ -13,15 +13,32 @@ export default async function MemberLoginPage({
   const session = await getCurrentPortalSession("MEMBER")
   const isDevBypass = isDevelopmentAuthBypassEnabled()
 
-  if (session) {
-    redirect("/member/profile")
-  }
-
   return (
     <main className="auth-shell">
       <section className="auth-card">
         <span className="section-label">Member Portal</span>
         <h1 className="auth-title">Open your membership profile</h1>
+        {session ? (
+          <div className="form-feedback form-feedback-warning">
+            <p>
+              You are currently signed in as <strong>{session.user.email}</strong>.
+            </p>
+            <p>
+              Requesting a new magic link will switch this browser to that member
+              account after the new email link is opened.
+            </p>
+            <div className="auth-actions-row">
+              <Link href="/member/profile" className="btn btn-outline">
+                Back to profile
+              </Link>
+              <form action={logoutMember}>
+                <button type="submit" className="btn btn-primary">
+                  Sign out first
+                </button>
+              </form>
+            </div>
+          </div>
+        ) : null}
         <MagicLinkRequestForm
           action={requestMemberMagicLink}
           description={

@@ -89,6 +89,61 @@ function hashToken(token: string) {
   return createHash("sha256").update(token).digest("hex")
 }
 
+function getPortalCookieDomain() {
+  if (process.env.NODE_ENV !== "production") {
+    return undefined
+  }
+
+  try {
+    const hostname = new URL(getSiteUrl()).hostname.toLowerCase()
+
+    if (hostname === "pngoswa.org" || hostname.endsWith(".pngoswa.org")) {
+      return ".pngoswa.org"
+    }
+  } catch {
+    return undefined
+  }
+
+  return undefined
+}
+
+function buildPortalCookieOptions(expiresAt: Date) {
+  const domain = getPortalCookieDomain()
+
+  return {
+    ...(domain ? { domain } : {}),
+    expires: expiresAt,
+    httpOnly: true,
+    path: "/",
+    sameSite: "strict" as const,
+    secure: process.env.NODE_ENV === "production",
+  }
+}
+
+function buildExpiredPortalCookieOptions() {
+  const domain = getPortalCookieDomain()
+
+  return {
+    ...(domain ? { domain } : {}),
+    expires: new Date(0),
+    httpOnly: true,
+    path: "/",
+    sameSite: "strict" as const,
+    secure: process.env.NODE_ENV === "production",
+  }
+}
+
+async function clearPortalSessionCookie(scope: PortalScope) {
+  const cookieStore = await cookies()
+  const expiredOptions = buildExpiredPortalCookieOptions()
+
+  cookieStore.set(portalConfig[scope].cookieName, "", {
+    ...expiredOptions,
+  })
+
+  cookieStore.delete(portalConfig[scope].cookieName)
+}
+
 export function isDevelopmentAuthBypassEnabled() {
   return (
     process.env.NODE_ENV !== "production" &&
@@ -397,15 +452,15 @@ export async function setPortalSessionCookie(
   rawSessionToken: string,
   expiresAt: Date
 ) {
+  await clearPortalSessionCookie(scope)
+
   const cookieStore = await cookies()
 
-  cookieStore.set(portalConfig[scope].cookieName, rawSessionToken, {
-    expires: expiresAt,
-    httpOnly: true,
-    path: "/",
-    sameSite: "strict",
-    secure: process.env.NODE_ENV === "production",
-  })
+  cookieStore.set(
+    portalConfig[scope].cookieName,
+    rawSessionToken,
+    buildPortalCookieOptions(expiresAt)
+  )
 }
 
 export async function getCurrentPortalSession(
@@ -490,5 +545,5 @@ export async function logoutPortalSession(scope: PortalScope) {
     }
   }
 
-  cookieStore.delete(portalConfig[scope].cookieName)
+  await clearPortalSessionCookie(scope)
 }

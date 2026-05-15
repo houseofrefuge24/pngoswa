@@ -2391,6 +2391,13 @@ textarea.form-input {
   margin-top: 1.5rem;
 }
 
+.auth-actions-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
 .auth-copy,
 .portal-copy,
 .dashboard-copy {
