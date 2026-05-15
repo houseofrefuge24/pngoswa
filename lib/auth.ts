@@ -13,6 +13,7 @@ import {
   createMagicLinkEmail,
   sendTransactionalEmail,
 } from "@/lib/email"
+import { getSiteUrl } from "@/lib/site-url"
 
 type PortalScope = "ADMIN" | "MEMBER"
 
@@ -75,13 +76,6 @@ function normalizeEmail(email: string) {
 
 function hashToken(token: string) {
   return createHash("sha256").update(token).digest("hex")
-}
-
-function getSiteUrl() {
-  return (process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000").replace(
-    /\/$/,
-    ""
-  )
 }
 
 export function isDevelopmentAuthBypassEnabled() {

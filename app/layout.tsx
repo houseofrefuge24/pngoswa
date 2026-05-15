@@ -4,12 +4,11 @@ import { NextSSRPlugin } from "@uploadthing/react/next-ssr-plugin"
 import { extractRouterConfig } from "uploadthing/server"
 
 import { uploadRouter } from "@/app/api/uploadthing/core"
+import { getSiteUrl } from "@/lib/site-url"
 
 import "./globals.css"
 
-const siteUrl = (
-  process.env.NEXT_PUBLIC_SITE_URL ?? "https://pngoswa.org"
-).replace(/\/$/, "")
+const siteUrl = getSiteUrl()
 
 const defaultOgImage =
   "/api/og?title=PNGOSWA&description=Philippine%20NGO%20Social%20Workers%20Association"

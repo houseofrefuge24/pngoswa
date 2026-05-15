@@ -13,7 +13,7 @@ Recommended Dokploy environment variables:
 
 ```env
 DATABASE_URL="paste-your-prisma-postgres-connection-string-here"
-NEXT_PUBLIC_SITE_URL="https://your-domain.com"
+NEXT_PUBLIC_SITE_URL="https://www.pngoswa.org"
 RUN_DB_MIGRATIONS="true"
 RESEND_API_KEY=""
 UPLOADTHING_TOKEN=""
@@ -64,6 +64,8 @@ For fully automatic VPS deploys on push:
 4. Set the required environment variables in Dokploy, especially `DATABASE_URL`, `NEXT_PUBLIC_SITE_URL`, `RUN_DB_MIGRATIONS`, `RESEND_API_KEY`, and `UPLOADTHING_TOKEN`.
 
 With that setup, each push can trigger a fresh Docker build in Dokploy, and the new container will apply Prisma migrations before starting.
+
+For production, set `NEXT_PUBLIC_SITE_URL` to `https://www.pngoswa.org`.
 
 ## Getting Started
 

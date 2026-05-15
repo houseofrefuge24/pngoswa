@@ -1,3 +1,5 @@
+import { getSiteUrl } from "@/lib/site-url"
+
 type MembershipReviewEmailKind = "approve" | "follow-up" | "reject"
 type MagicLinkEmailScope = "ADMIN" | "MEMBER"
 
@@ -57,11 +59,7 @@ function getReplyToEmail() {
 }
 
 function getMemberPortalUrl() {
-  const siteUrl = (
-    process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000"
-  ).replace(/\/$/, "")
-
-  return `${siteUrl}/member/login`
+  return `${getSiteUrl()}/member/login`
 }
 
 function wrapEmailTemplate(params: {
